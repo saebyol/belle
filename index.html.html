@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8주 감량 트래커</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #f9f8f6; font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; color: #1a1a1a; }
+
+/* ── 헤더 ── */
+.header { padding: 2rem 1.5rem 1rem; max-width: 1100px; margin: 0 auto; }
+.header h1 { font-size: 20px; font-weight: 500; }
+.header p  { font-size: 12px; color: #888; margin-top: 3px; }
+
+/* ── 성과 대시보드 ── */
+.dashboard { max-width: 1100px; margin: 0 auto 1.5rem; padding: 0 1.5rem; }
+.stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 10px; }
+.stat { background: #fff; border: 0.5px solid #e0ddd8; border-radius: 10px; padding: 12px 14px; text-align: center; }
+.stat-num  { font-size: 22px; font-weight: 500; color: #1a1a1a; }
+.stat-sub  { font-size: 10px; color: #888; margin-top: 3px; }
+.stat.highlight { background: #EAF3DE; border-color: #C0DD97; }
+.stat.highlight .stat-num { color: #3B6D11; }
+
+.progress-wrap { background: #fff; border: 0.5px solid #e0ddd8; border-radius: 10px; padding: 12px 16px; }
+.prog-label { display: flex; justify-content: space-between; font-size: 11px; color: #888; margin-bottom: 6px; }
+.prog-bar-bg { background: #f2f0eb; border-radius: 4px; height: 8px; }
+.prog-bar-fill { height: 8px; border-radius: 4px; background: linear-gradient(90deg, #B5D4F4, #378ADD); transition: width 0.4s; }
+
+/* ── 주차 탭 ── */
+.tabs { display: flex; gap: 6px; padding: 0 1.5rem; max-width: 1100px; margin: 0 auto 1rem; flex-wrap: wrap; }
+.tab { font-size: 11px; padding: 5px 14px; border-radius: 20px; border: 0.5px solid #e0ddd8; cursor: pointer; background: #fff; color: #888; transition: all 0.15s; }
+.tab.active { background: #E6F1FB; border-color: #B5D4F4; color: #185FA5; font-weight: 500; }
+.tab.done   { background: #EAF3DE; border-color: #C0DD97; color: #3B6D11; }
+
+/* ── 달력 ── */
+.week-view { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem 2rem; }
+.week-info { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.week-title { font-size: 14px; font-weight: 500; }
+.week-kcal  { font-size: 11px; color: #854F0B; background: #FAEEDA; padding: 2px 8px; border-radius: 10px; }
+.week-ratio { font-size: 11px; color: #185FA5; }
+
+.days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+
+.day-card { border-radius: 10px; border: 0.5px solid #e0ddd8; background: #fff; padding: 10px 8px; min-height: 280px; display: flex; flex-direction: column; gap: 0; position: relative; transition: box-shadow 0.15s; }
+.day-card.rest-bg { background: #f8f7f4; border-color: transparent; }
+.day-card.all-done { border-color: #C0DD97; background: #f6fff3; }
+
+.day-name { font-size: 10px; color: #bbb; font-weight: 500; margin-bottom: 3px; }
+.type-badge { font-size: 9px; font-weight: 500; padding: 2px 6px; border-radius: 20px; display: inline-block; margin-bottom: 3px; }
+.tb-run  { background: #E6F1FB; color: #185FA5; }
+.tb-home { background: #EAF3DE; color: #3B6D11; }
+.tb-rest { background: #F1EFE8; color: #5F5E5A; }
+.time-info { font-size: 9px; color: #aaa; margin-bottom: 3px; }
+
+.iv { display: flex; gap: 1px; height: 4px; border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+.iv-w { background: #B5D4F4; } .iv-r { background: #378ADD; }
+
+.divider { height: 0.5px; background: #eae7e2; margin: 5px 0; }
+
+/* ── 항목 ── */
+.item { display: flex; align-items: flex-start; gap: 6px; margin-top: 5px; cursor: pointer; }
+.item-check { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid #ddd; flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.item-check.checked { background: #3B6D11; border-color: #3B6D11; }
+.item-check.checked::after { content: '✓'; font-size: 8px; color: #fff; line-height: 1; }
+.item-body { flex: 1; }
+.item-label { font-size: 9px; font-weight: 500; color: #aaa; display: block; margin-bottom: 1px; }
+.item-label.run-am   { color: #185FA5; }
+.item-label.home-din { color: #3B6D11; }
+.item-text { font-size: 9px; color: #555; line-height: 1.4; }
+.item-text.done-text { color: #aaa; text-decoration: line-through; }
+.edit-btn { font-size: 8px; color: #bbb; cursor: pointer; margin-top: 1px; text-decoration: underline; display: none; }
+.item:hover .edit-btn { display: block; }
+
+/* ── 완료 배지 ── */
+.done-badge { position: absolute; top: 8px; right: 8px; font-size: 16px; display: none; }
+.all-done .done-badge { display: block; }
+
+/* ── 모달 ── */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: #fff; border-radius: 14px; padding: 20px 22px; width: 340px; max-width: 90vw; }
+.modal h3 { font-size: 14px; font-weight: 500; margin-bottom: 14px; }
+.modal label { font-size: 11px; color: #888; display: block; margin-bottom: 4px; }
+.modal textarea { width: 100%; border: 0.5px solid #e0ddd8; border-radius: 8px; padding: 8px 10px; font-size: 12px; font-family: inherit; resize: vertical; min-height: 70px; outline: none; }
+.modal textarea:focus { border-color: #B5D4F4; }
+.modal-btns { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; }
+.btn { font-size: 12px; padding: 7px 16px; border-radius: 8px; border: 0.5px solid #e0ddd8; cursor: pointer; background: #fff; color: #555; font-family: inherit; }
+.btn.primary { background: #3B6D11; border-color: #3B6D11; color: #fff; }
+.btn:hover { opacity: 0.85; }
+
+/* ── 주간 성과 요약 ── */
+.week-summary { background: #f2f0eb; border-radius: 10px; padding: 12px 16px; margin-top: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.ws { text-align: center; }
+.ws-num { font-size: 18px; font-weight: 500; color: #1a1a1a; }
+.ws-label { font-size: 10px; color: #888; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>8주 감량 트래커</h1>
+  <p>항목을 클릭해서 체크 · 연필 버튼으로 수정 · 성과는 자동 누적</p>
+</div>
+
+<div class="dashboard">
+  <div class="stat-grid">
+    <div class="stat highlight">
+      <div class="stat-num" id="s-total">0</div>
+      <div class="stat-sub">총 완료 항목</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" id="s-ex">0</div>
+      <div class="stat-sub">운동 완료일</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" id="s-meal">0</div>
+      <div class="stat-sub">식단 지킨 끼니</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" id="s-streak">0</div>
+      <div class="stat-sub">현재 연속 운동일</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" id="s-pct">0%</div>
+      <div class="stat-sub">전체 달성률</div>
+    </div>
+  </div>
+  <div class="progress-wrap">
+    <div class="prog-label">
+      <span>8주 전체 진행률</span>
+      <span id="s-pct2">0 / 0 항목</span>
+    </div>
+    <div class="prog-bar-bg">
+      <div class="prog-bar-fill" id="prog-fill" style="width:0%"></div>
+    </div>
+  </div>
+</div>
+
+<div class="tabs" id="tabs"></div>
+<div class="week-view" id="week-view"></div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3>항목 수정</h3>
+    <label id="modal-label">수정할 내용</label>
+    <textarea id="modal-input" rows="3"></textarea>
+    <div class="modal-btns">
+      <button class="btn" onclick="closeModal()">취소</button>
+      <button class="btn primary" onclick="saveEdit()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 데이터 ──────────────────────────────────────────────────
+const WEEKS = [
+  {
+    title: '1주차', kcal: '1,400kcal', ratio: '걷기 4분 + 뛰기 1분 · 30분',
+    days: [
+      { name:'월', type:'run', time:'기상 직후 · 30분', iv:[4,1,4,1,4,1],
+        exNote:'힘들면 뛰기 30초도 OK',
+        items:[
+          {label:'① 운동 직후 아침', cls:'run-am', text:'달걀 2개 + 호밀빵 1장 + 아메리카노', type:'meal'},
+          {label:'② 점심', text:'참치 아보카도 현미 덮밥 + 양배추채', type:'meal'},
+          {label:'③ 저녁', text:'달걀찜 + 양배추 들깨볶음 + 방울토마토', type:'meal'},
+        ]},
+      { name:'화', type:'home', time:'오후 6:30 · 40분',
+        exNote:'스쿼트·힙쓰러스트·RDL',
+        items:[
+          {label:'① 아침', text:'달걀 2개 + 오트밀 + 아메리카노', type:'meal'},
+          {label:'② 점심 — 오늘 가장 든든하게', text:'호밀 오일파스타 + 닭가슴살 + 브로콜리', type:'meal'},
+          {label:'③ 운동 직후 저녁 (7:10)', cls:'home-din', text:'달걀 2개 + 닭가슴살 + 양배추무침 + 방울토마토', type:'meal'},
+          {label:'🏠 홈트 완료', text:'스쿼트·힙쓰러스트·RDL · 40분', type:'ex'},
+        ]},
+      { name:'수', type:'rest', exNote:'스트레칭 15분',
+        items:[
+          {label:'① 아침', text:'사과 그릭요거트 볼 + 달걀 1개', type:'meal'},
+          {label:'② 점심', text:'연어 구이 + 잡곡밥 반공기 + 브로콜리 찜', type:'meal'},
+          {label:'③ 저녁', text:'달걀찜 + 두부조림 + 숙주나물', type:'meal'},
+        ]},
+      { name:'목', type:'run', time:'기상 직후 · 30분', iv:[4,1,4,1,4,1],
+        exNote:'월보다 뛰기 조금 빠르게',
+        items:[
+          {label:'① 운동 직후 아침', cls:'run-am', text:'달걀 2개 + 호밀빵 + 사과 반 개 + 아메리카노', type:'meal'},
+          {label:'② 점심', text:'닭가슴살 브로콜리 볶음밥 (현미밥 반공기)', type:'meal'},
+          {label:'③ 저녁', text:'마녀수프 + 두부 스크램블 + 시금치나물', type:'meal'},
+        ]},
+      { name:'금', type:'home', time:'오후 6:30 · 40분',
+        exNote:'푸시업·플랭크·버피 + HIIT 10분',
+        items:[
+          {label:'① 아침', text:'달걀 브로콜리 스크램블 + 고구마 + 아메리카노', type:'meal'},
+          {label:'② 점심 — 오늘 가장 든든하게', text:'사과 닭가슴살 샐러드 + 호밀빵 1장', type:'meal'},
+          {label:'③ 운동 직후 저녁 (7:10)', cls:'home-din', text:'달걀 2개 + 참치 + 양배추무침 + 브로콜리', type:'meal'},
+          {label:'🏠 홈트 완료', text:'푸시업·플랭크·버피·HIIT · 40분', type:'ex'},
+        ]},
+      { name:'토', type:'run', time:'기상 직후 · 35분', iv:[4,1,4,1,4,1,4,1],
+        exNote:'주간 최장 · 완주 집중',
+        items:[
+          {label:'① 운동 직후 아침', cls:'run-am', text:'달걀 2개 + 호밀빵 + 아메리카노 + 사과 반 개', type:'meal'},
+          {label:'② 점심', text:'자유식 — 단백질 위주', type:'meal'},
+          {label:'③ 저녁', text:'닭가슴살 브로콜리 사과 샐러드', type:'meal'},
+        ]},
+      { name:'일', type:'rest', exNote:'산책 20분 OK',
+        items:[
+          {label:'① 아침', text:'오트밀 + 견과류 + 사과 반 개', type:'meal'},
+          {label:'② 점심', text:'자유식 — 1,600kcal 이내', type:'meal'},
+          {label:'③ 저녁', text:'달걀 2개 + 두부구이 + 방울토마토', type:'meal'},
+        ]},
+    ]
+  },
+  {
+    title: '2주차', kcal: '1,400kcal', ratio: '걷기 4분 + 뛰기 1분 · 35–40분',
+    days: [
+      { name:'월', type:'run', time:'기상 직후 · 35분', iv:[4,1,4,1,4,1,4,1],
+        exNote:'6.5km/h 도전 · 경사 추가',
+        items:[
+          {label:'① 운동 직후 아침', cls:'run-am', text:'달걀 2개 + 호밀빵 + 참치 아보카도 토핑 + 아메리카노', type:'meal'},
+          {label:'② 점심', text:'고등어 구이 + 잡곡밥 + 양배추 된장볶음', type:'meal'},
+          {label:'③ 저녁', text:'마녀수프 + 달걀찜 + 브로콜리', type:'meal'},
+        ]},
+      { name:'화', type:'home', time:'오후 6:30 · 45분',
+        exNote:'스쿼트·힙쓰러스트·RDL · 세트 수 ↑',
+        items:[
+          {label:'① 아침', text:'두유 바나나 스무디 + 달걀 2개 + 아메리카노', type:'meal'},
+          {label:'② 점심 — 오늘 가장 든든하게', text:'닭가슴살 브로콜리 볶음밥 + 사과 반 개', type:'meal'},
+          {label:'③ 운동 직후 저녁 (7:15)', cls:'home-din', text:'달걀 2개 + 닭가슴살 + 시금치나물 + 방울토마토', type:'meal'},
+          {label:'🏠 홈트 완료', text:'스쿼트·힙쓰러스트·RDL · 45분', type:'ex'},
+        ]},
+      { name:'수', type:'rest', exNote:'요가·스트레칭 20분',
+        items:[
+          {label:'① 아침', text:'오트밀 + 사과 반 개 + 달걀 1개', type:'meal'},
+          {label:'② 점심', text:'두부 스테이크 + 나물 2종 + 현미밥 반공기', type:'meal'},
+          {label:'③ 저녁', text:'달걀 브로콜리 스크램블 + 숙주나물', type:'meal'},
+        ]},
+      { name:'목', type:'run', time:'기상 직후 · 35분', iv:[4,1,4,1,4,1,4,1],
+        exNote:'경사 구간 · 심박 120–140',
+        items:[
+          {label:'① 운동 직후 아침', cls:'run-am', text:'달걀 브로콜리 스크램블 + 호밀빵 + 아메리카노', type:'meal'},
+          {label:'② 점심', text:'참치 브로콜리 달걀 오믈렛 + 고구마 100g', type:'meal'},
+          {label:'③ 저녁', text:'마녀수프 + 닭가슴살 + 양배추무침', type:'meal'},
+        ]},
+      { name:'금', type:'home', time:'오후 6:30 · 45분',
+        exNote:'푸시업·플랭크·버피 + HIIT 12분',
+        items:[
+          {label:'① 아침', text:'사과 그릭요거트 볼 + 달걀 2개 + 아메리카노', type:'meal'},
+          {label:'② 점심 — 오늘 가장 든든하게', text:'양배추 닭가슴살 쌈밥 + 현미밥 반공기', type:'meal'},
+          {label:'③ 운동 직후 저녁 (7:15)', cls:'home-din', text:'달걀 2개 + 두부 + 숙주나물 + 방울토마토', type:'meal'},
+          {label:'🏠 홈트 완료', text:'푸시업·플랭크·버피·HIIT · 45분', type:'ex'},
+        ]},
+      { name:'토', type:'run', time:'기상 직후 · 40분', iv:[4,1,4,1,4,1,4,1,4,1],
+        exNote:'주간 최장 · 완주 집중',
+        items:[
+          {label:'① 운동 직후 아침', cls:'run-am', text:'달걀 2개 + 호밀빵 + 사과 반 개 + 아메리카노', type:'meal'},
+          {label:'② 점심', text:'자유식 — 단백질 위주', type:'meal'},
+          {label:'③ 저녁', text:'마녀수프 + 참치 양배추 달걀 한그릇', type:'meal'},
+        ]},
+      { name:'일', type:'rest', exNote:'산책 20분',
+        items:[
+          {label:'① 아침', text:'참치 아보카도 호밀토스트 + 아메리카노', type:'meal'},
+          {label:'② 점심', text:'자유식 — 과식 X', type:'meal'},
+          {label:'③ 저녁', text:'두부 스크램블 + 나물 2종 + 방울토마토', type:'meal'},
+        ]},
+    ]
+  },
+  {
+    title: '3–5주차 집중기', kcal: '1,300–1,350kcal', ratio: '걷기 3→2분 + 뛰기 1분 · 35–45분',
+    days: [
+      { name:'월', type:'run', time:'기상 직후 · 35–40분', iv:[3,1,3,1,3,1,3,1],
+        exNote:'뛰기 구간 확실히',
+        items:[
+          {label:'① 운동 직후 아침', cls:'run-am', text:'달걀 2개 + 호밀빵 + 아메리카노', type:'meal'},
+          {label:'② 점심', text:'연어 + 잡곡밥 반공기 + 브로콜리 찜', type:'meal'},
+          {label:'③ 저녁', text:'마녀수프 + 달걀찜 + 양배추볶음', type:'meal'},
+        ]},
+      { name:'화', type:'home', time:'오후 6:30 · 45–50분',
+        exNote:'스쿼트·힙쓰러스트·RDL · 세트 수·무게 ↑↑',
+        items:[
+          {label:'① 아침', text:'달걀 2개 + 고구마 100g + 아메리카노', type:'meal'},
+          {label:'② 점심 — 오늘 가장 든든하게', text:'호밀 오일파스타 + 닭가슴살 + 브로콜리', type:'meal'},
+          {label:'③ 운동 직후 저녁 (7:15–7:20)', cls:'home-din', text:'달걀 2개 + 닭가슴살 + 양배추무침 + 시금치나물', type:'meal'},
+          {label:'🏠 홈트 완료', text:'스쿼트·힙쓰러스트·RDL · 45–50분', type:'ex'},
+        ]},
+      { name:'수', type:'rest', exNote:'산책 30분',
+        items:[
+          {label:'① 아침', text:'오트밀 + 사과 + 달걀 1개', type:'meal'},
+          {label:'② 점심', text:'닭가슴살 쌈밥 + 현미밥 조금', type:'meal'},
+          {label:'③ 저녁', text:'달걀찜 + 두부조림 + 시금치나물', type:'meal'},
+        ]},
+      { name:'목', type:'run', time:'기상 직후 · 40분', iv:[3,1,3,1,3,1,3,1],
+        exNote:'경사 포함 · 페이스 유지',
+        items:[
+          {label:'① 운동 직후 아침', cls:'run-am', text:'달걀 2개 + 호밀빵 + 사과 반 개 + 아메리카노', type:'meal'},
+          {label:'② 점심', text:'고등어 구이 + 양배추볶음 + 잡곡밥', type:'meal'},
+          {label:'③ 저녁', text:'참치 양배추 달걀 한그릇 + 숙주나물', type:'meal'},
+        ]},
+      { name:'금', type:'home', time:'오후 6:30 · 45–50분',
+        exNote:'푸시업·플랭크·버피 + HIIT 15분',
+        items:[
+          {label:'① 아침', text:'사과 그릭요거트 볼 + 달걀 2개 + 아메리카노', type:'meal'},
+          {label:'② 점심 — 오늘 가장 든든하게', text:'닭가슴살 브로콜리 볶음밥 + 사과 반 개', type:'meal'},
+          {label:'③ 운동 직후 저녁 (7:15–7:20)', cls:'home-din', text:'달걀 2개 + 참치 + 브로콜리 + 방울토마토', type:'meal'},
+          {label:'🏠 홈트 완료', text:'푸시업·플랭크·버피·HIIT · 45–50분', type:'ex'},
+        ]},
+      { name:'토', type:'run', time:'기상 직후 · 40–45분', iv:[3,1,3,1,3,1,3,1,3,1],
+        exNote:'주간 최장 · 완주 집중',
+        items:[
+          {label:'① 운동 직후 아침', cls:'run-am', text:'달걀 2개 + 호밀빵 + 아메리카노', type:'meal'},
+          {label:'② 점심', text:'자유식 — 단백질 위주', type:'meal'},
+          {label:'③ 저녁', text:'닭가슴살 브로콜리 사과 샐러드', type:'meal'},
+        ]},
+      { name:'일', type:'rest', exNote:'수면 회복 집중',
+        items:[
+          {label:'① 아침', text:'오트밀 + 사과 + 달걀', type:'meal'},
+          {label:'② 점심', text:'자유식 — 단백질 유지', type:'meal'},
+          {label:'③ 저녁', text:'달걀 2개 + 두부구이 + 브로콜리', type:'meal'},
+        ]},
+    ]
+  },
+  {
+    title: '6–8주차 마무리', kcal: '1,200–1,300kcal', ratio: '걷기 1분 + 뛰기 2분 · 45–50분',
+    days: [
+      { name:'월', type:'run', time:'기상 직후 · 45분', iv:[1,2,1,2,1,2,1,2,1,2],
+        exNote:'뛰기 2/3 — 사실상 러너',
+        items:[
+          {label:'① 운동 직후 아침', cls:'run-am', text:'달걀 2개 + 호밀빵 + 아메리카노', type:'meal'},
+          {label:'② 점심', text:'연어 + 잡곡밥 + 브로콜리 + 사과 반 개', type:'meal'},
+          {label:'③ 저녁', text:'마녀수프 + 달걀찜 + 양배추 들깨볶음', type:'meal'},
+        ]},
+      { name:'화', type:'home', time:'오후 6:30 · 50분',
+        exNote:'스쿼트·힙쓰러스트·RDL · 8주 최고 강도',
+        items:[
+          {label:'① 아침', text:'오트밀 + 사과 + 달걀 2개 + 아메리카노', type:'meal'},
+          {label:'② 점심 — 오늘 가장 든든하게', text:'호밀 오일파스타 + 닭가슴살 + 브로콜리', type:'meal'},
+          {label:'③ 운동 직후 저녁 (7:20)', cls:'home-din', text:'달걀 2개 + 닭가슴살 + 양배추무침 + 방울토마토', type:'meal'},
+          {label:'🏠 홈트 완료', text:'스쿼트·힙쓰러스트·RDL · 50분', type:'ex'},
+        ]},
+      { name:'수', type:'rest', exNote:'산책 40분',
+        items:[
+          {label:'① 아침', text:'사과 그릭요거트 볼 + 달걀 1개', type:'meal'},
+          {label:'② 점심', text:'두부 스테이크 + 나물 2종 + 현미밥 반공기', type:'meal'},
+          {label:'③ 저녁', text:'달걀 2개 + 시금치나물 + 숙주나물', type:'meal'},
+        ]},
+      { name:'목', type:'run', time:'기상 직후 · 50분', iv:[1,2,1,2,1,2,1,2,1,2],
+        exNote:'주간 최장 · 페이스 일정하게',
+        items:[
+          {label:'① 운동 직후 아침', cls:'run-am', text:'달걀 2개 + 호밀빵 + 사과 반 개 + 아메리카노', type:'meal'},
+          {label:'② 점심', text:'닭가슴살 브로콜리 볶음밥 + 고구마 100g', type:'meal'},
+          {label:'③ 저녁', text:'참치 양배추 달걀 한그릇 + 방울토마토', type:'meal'},
+        ]},
+      { name:'금', type:'home', time:'오후 6:30 · 50분',
+        exNote:'푸시업·플랭크·버피 + HIIT 15분 · 마지막 루틴',
+        items:[
+          {label:'① 아침', text:'달걀 브로콜리 스크램블 + 호밀빵 + 아메리카노', type:'meal'},
+          {label:'② 점심 — 오늘 가장 든든하게', text:'사과 닭가슴살 샐러드 + 호밀빵 1장', type:'meal'},
+          {label:'③ 운동 직후 저녁 (7:20)', cls:'home-din', text:'달걀 2개 + 두부 + 양배추무침 + 시금치나물', type:'meal'},
+          {label:'🏠 홈트 완료', text:'푸시업·플랭크·버피·HIIT · 50분', type:'ex'},
+        ]},
+      { name:'토', type:'run', time:'기상 직후 · 50분', iv:[1,2,1,2,1,2,1,2,1,2],
+        exNote:'8주 마지막 — 전력 완주!',
+        items:[
+          {label:'① 운동 직후 아침', cls:'run-am', text:'달걀 2개 + 호밀빵 + 사과 반 개 + 아메리카노', type:'meal'},
+          {label:'② 점심', text:'자유식 — 1,700kcal 이내', type:'meal'},
+          {label:'③ 저녁', text:'닭가슴살 브로콜리 사과 샐러드', type:'meal'},
+        ]},
+      { name:'일', type:'rest', exNote:'8주 수고했어요!',
+        items:[
+          {label:'① 아침', text:'오트밀 + 사과 + 달걀', type:'meal'},
+          {label:'② 점심', text:'자유식 — 단백질 유지', type:'meal'},
+          {label:'③ 저녁', text:'달걀 2개 + 두부구이 + 시금치나물', type:'meal'},
+        ]},
+    ]
+  }
+];
+
+// ── 상태 ──────────────────────────────────────────────────
+let state = JSON.parse(localStorage.getItem('tracker8w') || 'null');
+if (!state) {
+  state = { checks: {}, texts: {} };
+  WEEKS.forEach((w, wi) => {
+    w.days.forEach((d, di) => {
+      d.items.forEach((item, ii) => {
+        const key = `${wi}-${di}-${ii}`;
+        state.checks[key] = false;
+        state.texts[key] = item.text;
+      });
+    });
+  });
+}
+let currentWeek = 0;
+let editKey = null;
+
+function save() {
+  localStorage.setItem('tracker8w', JSON.stringify(state));
+}
+
+// ── 통계 계산 ──────────────────────────────────────────────
+function calcStats() {
+  let total = 0, done = 0, exDone = 0, mealDone = 0;
+  let exDays = [];
+  WEEKS.forEach((w, wi) => {
+    w.days.forEach((d, di) => {
+      let dayExDone = false;
+      d.items.forEach((item, ii) => {
+        const key = `${wi}-${di}-${ii}`;
+        total++;
+        if (state.checks[key]) {
+          done++;
+          if (item.type === 'meal') mealDone++;
+          if (item.type === 'ex') { exDone++; dayExDone = true; }
+        }
+      });
+      // 워킹런 날은 별도 운동 항목 없이 아침 체크로 운동 카운트
+      if (d.type === 'run' && d.items.some((it, ii) => it.type === 'meal' && it.cls === 'run-am' && state.checks[`${wi}-${di}-${ii}`])) {
+        exDays.push(`${wi}-${di}`);
+      } else if (dayExDone) {
+        exDays.push(`${wi}-${di}`);
+      }
+    });
+  });
+
+  // 연속 운동일 계산 (간단 버전)
+  let streak = 0;
+  const allDays = [];
+  WEEKS.forEach((w, wi) => w.days.forEach((d, di) => allDays.push(`${wi}-${di}`)));
+  for (let i = allDays.length - 1; i >= 0; i--) {
+    if (exDays.includes(allDays[i])) streak++;
+    else break;
+  }
+
+  document.getElementById('s-total').textContent = done;
+  document.getElementById('s-ex').textContent = [...new Set(exDays)].length;
+  document.getElementById('s-meal').textContent = mealDone;
+  document.getElementById('s-streak').textContent = streak;
+  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+  document.getElementById('s-pct').textContent = pct + '%';
+  document.getElementById('s-pct2').textContent = `${done} / ${total} 항목`;
+  document.getElementById('prog-fill').style.width = pct + '%';
+}
+
+// ── 탭 렌더 ──────────────────────────────────────────────
+function renderTabs() {
+  const wrap = document.getElementById('tabs');
+  wrap.innerHTML = '';
+  WEEKS.forEach((w, wi) => {
+    const btn = document.createElement('div');
+    btn.className = 'tab' + (wi === currentWeek ? ' active' : '');
+    // 이번 주 전체 완료 여부
+    let allDone = true;
+    w.days.forEach((d, di) => {
+      d.items.forEach((item, ii) => {
+        if (!state.checks[`${wi}-${di}-${ii}`]) allDone = false;
+      });
+    });
+    if (allDone && wi !== currentWeek) btn.classList.add('done');
+    btn.textContent = w.title + (allDone ? ' ✓' : '');
+    btn.onclick = () => { currentWeek = wi; render(); };
+    wrap.appendChild(btn);
+  });
+}
+
+// ── 인터벌 바 렌더 ──────────────────────────────────────
+function renderIv(arr) {
+  if (!arr) return '';
+  let html = '<div class="iv">';
+  arr.forEach(v => {
+    html += `<div class="${v > 1 ? 'iv-r' : 'iv-w'}" style="flex:${v}"></div>`;
+  });
+  return html + '</div>';
+}
+
+// ── 주 뷰 렌더 ──────────────────────────────────────────
+function renderWeek() {
+  const w = WEEKS[currentWeek];
+  const view = document.getElementById('week-view');
+
+  let totalDone = 0, totalItems = 0;
+  w.days.forEach((d, di) => {
+    d.items.forEach((item, ii) => {
+      totalItems++;
+      if (state.checks[`${currentWeek}-${di}-${ii}`]) totalDone++;
+    });
+  });
+
+  let html = `
+    <div class="week-info">
+      <div class="week-title">${w.title}</div>
+      <div class="week-kcal">${w.kcal}</div>
+      <div class="week-ratio">${w.ratio}</div>
+    </div>
+    <div class="days-grid">
+  `;
+
+  w.days.forEach((d, di) => {
+    const isRest = d.type === 'rest';
+    let allDone = d.items.every((item, ii) => state.checks[`${currentWeek}-${di}-${ii}`]);
+    const typeBadge = d.type === 'run' ? 'tb-run' : d.type === 'home' ? 'tb-home' : 'tb-rest';
+    const typeLabel = d.type === 'run' ? '워킹런' : d.type === 'home' ? '홈트' : '휴식';
+
+    html += `<div class="day-card${isRest ? ' rest-bg' : ''}${allDone ? ' all-done' : ''}" id="card-${di}">
+      <div class="done-badge">🎉</div>
+      <div class="day-name">${d.name}요일</div>
+      <div class="type-badge ${typeBadge}">${typeLabel}${d.type === 'home' ? ` — ${di === 1 || di === 4 ? (di===1?'A 하체':'B 상체·코어') : ''}` : ''}</div>`;
+
+    if (d.time) html += `<div class="time-info">${d.time}</div>`;
+    if (d.iv) html += renderIv(d.iv);
+    if (d.exNote) html += `<div class="time-info">${d.exNote}</div>`;
+
+    html += `<div class="divider"></div>`;
+
+    d.items.forEach((item, ii) => {
+      const key = `${currentWeek}-${di}-${ii}`;
+      const checked = state.checks[key];
+      const text = state.texts[key] || item.text;
+      const isCustom = text !== item.text;
+      html += `
+        <div class="item" onclick="toggle('${key}')">
+          <div class="item-check${checked ? ' checked' : ''}"></div>
+          <div class="item-body">
+            <span class="item-label${item.cls ? ' ' + item.cls : ''}">${item.label}</span>
+            <div class="item-text${checked ? ' done-text' : ''}">${text}${isCustom ? ' <span style="font-size:8px;color:#854F0B;">✎ 수정됨</span>' : ''}</div>
+            <span class="edit-btn" onclick="event.stopPropagation(); openEdit('${key}', \`${item.label.replace(/`/g,'\\`')}\`)">✎ 수정</span>
+          </div>
+        </div>`;
+    });
+
+    html += `</div>`;
+  });
+
+  html += `</div>`;
+
+  // 주간 요약
+  let exCount = 0, mealCount = 0;
+  w.days.forEach((d, di) => {
+    d.items.forEach((item, ii) => {
+      const key = `${currentWeek}-${di}-${ii}`;
+      if (state.checks[key]) {
+        if (item.type === 'ex' || (item.type === 'meal' && item.cls === 'run-am')) exCount++;
+        if (item.type === 'meal') mealCount++;
+      }
+    });
+  });
+  const pct = totalItems > 0 ? Math.round(totalDone / totalItems * 100) : 0;
+
+  html += `
+    <div class="week-summary">
+      <div class="ws"><div class="ws-num">${totalDone}</div><div class="ws-label">완료 항목</div></div>
+      <div class="ws"><div class="ws-num">${mealCount}</div><div class="ws-label">식단 지킨 끼니</div></div>
+      <div class="ws"><div class="ws-num">${exCount}</div><div class="ws-label">운동 완료</div></div>
+      <div class="ws"><div class="ws-num">${pct}%</div><div class="ws-label">이번 주 달성률</div></div>
+    </div>
+  `;
+
+  view.innerHTML = html;
+}
+
+function render() {
+  renderTabs();
+  renderWeek();
+  calcStats();
+}
+
+// ── 토글 ──────────────────────────────────────────────────
+function toggle(key) {
+  state.checks[key] = !state.checks[key];
+  save();
+  render();
+}
+
+// ── 수정 모달 ──────────────────────────────────────────────
+function openEdit(key, label) {
+  editKey = key;
+  document.getElementById('modal-label').textContent = label + ' — 수정';
+  document.getElementById('modal-input').value = state.texts[key] || '';
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  editKey = null;
+}
+
+function saveEdit() {
+  if (editKey) {
+    state.texts[editKey] = document.getElementById('modal-input').value.trim();
+    save();
+    render();
+  }
+  closeModal();
+}
+
+document.getElementById('modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ── 초기 실행 ──────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
